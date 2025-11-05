@@ -1,11 +1,8 @@
 from fastmcp import FastMCP, Client
 from fastmcp.client.auth import BearerAuth
 import json
-from typing import Any
+from typing import Any, Optional, Union
 import inspect
-from pathlib import Path
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
-from starlette.routing import Route
 import os
 from dotenv import load_dotenv
 import subprocess
@@ -14,6 +11,8 @@ import time
 import requests
 import atexit
 import signal
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Load environment variables from .env file
 load_dotenv()
@@ -23,12 +22,12 @@ mcp = FastMCP("MCP Aggregator")
 # Security configuration
 MCP_API_TOKEN = os.getenv("MCP_API_TOKEN")  # Token for /mcp endpoint
 UI_PASSWORD = os.getenv("UI_PASSWORD", "admin")  # Password for /ui
-authenticated_sessions = set()
+authenticated_sessions: set[str] = set()
 
 class UpstreamManager:
-    def __init__(self):
+    def __init__(self) -> None:
         # HTTP-based servers with optional auth
-        self.http_servers = {
+        self.http_servers: dict[str, dict[str, Optional[str]]] = {
             "gofastmcp": {
                 "url": "https://gofastmcp.com/mcp",
                 "auth_token": None
@@ -36,7 +35,7 @@ class UpstreamManager:
         }
 
         # Stdio-based servers (Node, Python, etc.)
-        self.stdio_servers = {
+        self.stdio_servers: dict[str, dict[str, Any]] = {
             "context7": {
                 "command": "npx",
                 "args": ["-y", "@upstash/context7-mcp"],
@@ -56,7 +55,7 @@ class UpstreamManager:
         }
 
         # Service-based servers (start in background, connect via HTTP)
-        self.service_servers = {
+        self.service_servers: dict[str, dict[str, Any]] = {
             "serena": {
                 "command": "uvx",
                 "args": [
@@ -80,11 +79,11 @@ class UpstreamManager:
             }
         }
 
-        self.clients = {}
-        self.tools_cache = {}
-        self.background_processes = {}  # Track background processes
+        self.clients: dict[str, dict[str, Any]] = {}
+        self.tools_cache: dict[str, list[dict[str, Any]]] = {}
+        self.background_processes: dict[str, subprocess.Popen[str]] = {}
 
-    def _resolve_token(self, token_or_env: str) -> str:
+    def _resolve_token(self, token_or_env: Optional[str]) -> Optional[str]:
         """
         Resolve a token that might be an environment variable reference.
         If it starts with $, treat it as an env var name.
@@ -102,7 +101,7 @@ class UpstreamManager:
 
         return token_or_env
 
-    def _start_service(self, service_name: str, config: dict) -> bool:
+    def _start_service(self, service_name: str, config: dict[str, Any]) -> bool:
         """Start a service in a background thread and wait for it to be ready"""
         print(f"🚀 Starting service: {service_name}")
 
@@ -137,8 +136,8 @@ class UpstreamManager:
                 # Check if process has died
                 if process.poll() is not None:
                     stdout, stderr = process.communicate()
-                    print(f"   ❌ Process died. STDOUT: {stdout[:200]}")
-                    print(f"   ❌ STDERR: {stderr[:200]}")
+                    print(f"   ❌ Process died. STDOUT: {stdout[:200] if stdout else ''}")
+                    print(f"   ❌ STDERR: {stderr[:200] if stderr else ''}")
                     return False
 
                 try:
@@ -146,7 +145,7 @@ class UpstreamManager:
                     if response.status_code < 500:  # Any response that's not a server error
                         print(f"   ✅ Service {service_name} is ready!")
                         return True
-                except requests.exceptions.RequestException:
+                except requests.RequestException:
                     pass
 
                 time.sleep(1)
@@ -165,7 +164,7 @@ class UpstreamManager:
             traceback.print_exc()
             return False
 
-    def _get_client_config(self, server: str) -> dict:
+    def _get_client_config(self, server: str) -> dict[str, Any]:
         """Get the appropriate client configuration for a server"""
         if server in self.http_servers:
             http_config = self.http_servers[server]
@@ -195,7 +194,7 @@ class UpstreamManager:
         else:
             raise ValueError(f"Unknown server: {server}")
 
-    async def discover_tools(self, server: str) -> list[dict]:
+    async def discover_tools(self, server: str) -> list[dict[str, Any]]:
         """Discover available tools from upstream server using FastMCP Client"""
         try:
             config = self._get_client_config(server)
@@ -249,7 +248,7 @@ class UpstreamManager:
             traceback.print_exc()
             return []
 
-    async def call_tool(self, server: str, tool: str, arguments: dict) -> Any:
+    async def call_tool(self, server: str, tool: str, arguments: dict[str, Any]) -> Any:
         """Route tool calls to upstream MCP servers using FastMCP Client"""
         if server not in self.clients:
             raise ValueError(f"Unknown server: {server}")
@@ -288,15 +287,18 @@ class UpstreamManager:
                 return result.data
             elif result.content:
                 # Combine all text content blocks
-                text_parts = []
+                text_parts: list[str] = []
                 for content_block in result.content:
+                    # Only access 'text' if it exists and is a string
                     if hasattr(content_block, 'text'):
-                        text_parts.append(content_block.text)
+                        text_value = getattr(content_block, 'text', None)
+                        if isinstance(text_value, str):
+                            text_parts.append(text_value)
                 return "\n\n".join(text_parts) if text_parts else None
             else:
                 return None
 
-    def add_http_server(self, name: str, url: str, auth_token: str = None):
+    def add_http_server(self, name: str, url: str, auth_token: Optional[str] = None) -> None:
         """Add a new HTTP server"""
         if name in self.http_servers or name in self.stdio_servers or name in self.service_servers:
             raise ValueError(f"Server '{name}' already exists")
@@ -306,7 +308,9 @@ class UpstreamManager:
             "auth_token": auth_token
         }
 
-    def add_stdio_server(self, name: str, command: str, args: list, env: dict = None, working_directory: str = None):
+    def add_stdio_server(self, name: str, command: str, args: list[str], 
+                        env: Optional[dict[str, str]] = None, 
+                        working_directory: Optional[str] = None) -> None:
         """Add a new stdio server"""
         if name in self.http_servers or name in self.stdio_servers or name in self.service_servers:
             raise ValueError(f"Server '{name}' already exists")
@@ -318,9 +322,10 @@ class UpstreamManager:
             "working_directory": working_directory
         }
 
-    def add_service_server(self, name: str, command: str, args: list, port: int,
+    def add_service_server(self, name: str, command: str, args: list[str], port: int,
                           health_check_path: str = "/mcp", startup_timeout: int = 30,
-                          env: dict = None, working_directory: str = None):
+                          env: Optional[dict[str, str]] = None, 
+                          working_directory: Optional[str] = None) -> None:
         """Add a new service server (starts in background, connects via HTTP)"""
         if name in self.http_servers or name in self.stdio_servers or name in self.service_servers:
             raise ValueError(f"Server '{name}' already exists")
@@ -340,7 +345,7 @@ class UpstreamManager:
             "working_directory": working_directory
         }
 
-    def remove_server(self, name: str):
+    def remove_server(self, name: str) -> None:
         """Remove a server"""
         # Stop background process if running
         if name in self.background_processes:
@@ -367,7 +372,7 @@ class UpstreamManager:
         if name in self.tools_cache:
             del self.tools_cache[name]
 
-    def cleanup_all_processes(self):
+    def cleanup_all_processes(self) -> None:
         """Clean up all background processes"""
         print("\n🧹 Cleaning up background processes...")
         for name, process in list(self.background_processes.items()):
@@ -384,12 +389,12 @@ class UpstreamManager:
 upstream = UpstreamManager()
 
 # Register cleanup handlers
-def cleanup_handler():
+def cleanup_handler() -> None:
     upstream.cleanup_all_processes()
 
 atexit.register(cleanup_handler)
 
-def signal_handler(signum, frame):
+def signal_handler(signum: int, frame: Any) -> None:
     print(f"\n⚠️  Received signal {signum}")
     cleanup_handler()
     exit(0)
@@ -402,7 +407,7 @@ def hello_world() -> str:
     """Say hello to the world"""
     return "Hello, World!"
 
-def create_upstream_tool_wrapper(server_name: str, tool_name: str, input_schema: dict):
+def create_upstream_tool_wrapper(server_name: str, tool_name: str, input_schema: dict[str, Any]) -> Any:
     """Factory function to create tool wrappers with proper signatures"""
 
     # Extract parameters from the input schema
@@ -410,8 +415,8 @@ def create_upstream_tool_wrapper(server_name: str, tool_name: str, input_schema:
     required = input_schema.get("required", [])
 
     # Build function signature dynamically
-    params = []
-    annotations = {}
+    params: list[inspect.Parameter] = []
+    annotations: dict[str, Any] = {}
 
     for param_name, param_info in properties.items():
         param_type = param_info.get("type", "string")
@@ -441,11 +446,11 @@ def create_upstream_tool_wrapper(server_name: str, tool_name: str, input_schema:
                 param_name,
                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
                 default=None,
-                annotation=python_type
+                annotation=Optional[python_type]
             ))
 
     # Create the function dynamically
-    async def upstream_tool_wrapper(**kwargs) -> str:
+    async def upstream_tool_wrapper(**kwargs: Any) -> str:
         """Wrapper for upstream tool"""
         try:
             # Filter out None values for optional parameters
@@ -472,21 +477,22 @@ def create_upstream_tool_wrapper(server_name: str, tool_name: str, input_schema:
             return json.dumps({"error": str(e)})
 
     # Set the signature on the wrapper function
-    upstream_tool_wrapper.__signature__ = inspect.Signature(
+    sig = inspect.Signature(
         parameters=params,
         return_annotation=str
     )
+    upstream_tool_wrapper.__signature__ = sig  # type: ignore
     upstream_tool_wrapper.__annotations__ = {**annotations, 'return': str}
 
     return upstream_tool_wrapper
 
 # Dynamically create tools for each upstream server
-async def setup_upstream_tools():
+async def setup_upstream_tools() -> None:
     print("🚀 Starting tool discovery...")
 
     # First, start all service servers and wait for them
     print("\n📦 Starting background services...")
-    service_threads = []
+    service_threads: list[tuple[str, threading.Thread]] = []
     for service_name in list(upstream.service_servers.keys()):
         config = upstream.service_servers[service_name]
         if service_name not in upstream.background_processes:
@@ -536,10 +542,8 @@ async def setup_upstream_tools():
 
 # ============= AUTHENTICATION MIDDLEWARE =============
 
-from starlette.middleware.base import BaseHTTPMiddleware
-
 class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Any, call_next: Any) -> Response:
         """Authentication middleware for protected routes"""
 
         # Check MCP endpoint authentication
@@ -561,8 +565,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
                         status_code=403
                     )
 
-        # Check UI authentication
-        if request.url.path.startswith("/ui") or request.url.path.startswith("/api/"):
+        # Check UI authentication (including /logout)
+        if request.url.path.startswith("/ui") or request.url.path.startswith("/api/") or request.url.path == "/logout":
             session_id = request.cookies.get("session_id")
 
             if session_id not in authenticated_sessions:
@@ -573,7 +577,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 # ============= LOGIN ROUTE =============
 
 @mcp.custom_route("/login", methods=["GET", "POST"])
-async def login(request):
+async def login(request: Any) -> Union[HTMLResponse, RedirectResponse]:
     """Simple login page"""
     if request.method == "POST":
         form = await request.form()
@@ -585,7 +589,7 @@ async def login(request):
             authenticated_sessions.add(session_id)
 
             response = RedirectResponse(url="/ui", status_code=302)
-            response.set_cookie("session_id", session_id, httponly=True, samesite="Lax")
+            response.set_cookie("session_id", session_id, httponly=True, samesite="lax")
             return response
         else:
             return HTMLResponse("""
@@ -648,7 +652,7 @@ async def login(request):
 # ============= WEB UI ROUTES =============
 
 @mcp.custom_route("/ui", methods=["GET"])
-async def home(request):
+async def home(request: Any) -> HTMLResponse:
     """Render the main UI"""
     html = """
     <!DOCTYPE html>
@@ -781,7 +785,7 @@ async def home(request):
     return HTMLResponse(html)
 
 @mcp.custom_route("/logout", methods=["GET"])
-async def logout(request):
+async def logout(request: Any) -> RedirectResponse:
     """Logout and clear session"""
     session_id = request.cookies.get("session_id")
     if session_id in authenticated_sessions:
@@ -792,9 +796,9 @@ async def logout(request):
     return response
 
 @mcp.custom_route("/api/servers", methods=["GET"])
-async def get_servers(request):
+async def get_servers(request: Any) -> HTMLResponse:
     """Return HTML fragment with server list"""
-    all_servers = []
+    all_servers: list[dict[str, Any]] = []
 
     # Add HTTP servers
     for name, config in upstream.http_servers.items():
@@ -803,7 +807,7 @@ async def get_servers(request):
         all_servers.append({
             "name": name,
             "type": "HTTP",
-            "config": config["url"],
+            "config": str(config.get("url", "")),
             "auth": auth_indicator,
             "tools": tools_count,
             "status": ""
@@ -812,7 +816,11 @@ async def get_servers(request):
     # Add stdio servers
     for name, config in upstream.stdio_servers.items():
         tools_count = len(upstream.tools_cache.get(name, []))
-        config_str = f"{config['command']} {' '.join(config['args'])}"
+        args_list = config.get('args', [])
+        if isinstance(args_list, list):
+            config_str = f"{config['command']} {' '.join(str(arg) for arg in args_list)}"
+        else:
+            config_str = f"{config['command']}"
         all_servers.append({
             "name": name,
             "type": "Stdio",
@@ -836,7 +844,11 @@ async def get_servers(request):
         else:
             status = "⚪ Not Started"
 
-        config_str = f"{config['command']} {' '.join(config['args'])} (port {config['port']})"
+        args_list = config.get('args', [])
+        if isinstance(args_list, list):
+            config_str = f"{config['command']} {' '.join(str(arg) for arg in args_list)} (port {config['port']})"
+        else:
+            config_str = f"{config['command']} (port {config['port']})"
         all_servers.append({
             "name": name,
             "type": "Service",
@@ -884,7 +896,7 @@ async def get_servers(request):
     return HTMLResponse(html)
 
 @mcp.custom_route("/api/servers/http", methods=["POST"])
-async def add_http_server(request):
+async def add_http_server(request: Any) -> HTMLResponse:
     """Add a new HTTP server"""
     form = await request.form()
     name = form.get("name")
@@ -892,7 +904,7 @@ async def add_http_server(request):
     auth_token = form.get("auth_token") or None
 
     try:
-        upstream.add_http_server(name, url, auth_token)
+        upstream.add_http_server(str(name), str(url), auth_token)
         # Trigger tool discovery
         await setup_upstream_tools()
 
@@ -908,16 +920,16 @@ async def add_http_server(request):
         return HTMLResponse(f'<div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">❌ Error: {str(e)}</div>')
 
 @mcp.custom_route("/api/servers/stdio", methods=["POST"])
-async def add_stdio_server(request):
+async def add_stdio_server(request: Any) -> HTMLResponse:
     """Add a new stdio server"""
     form = await request.form()
     name = form.get("name")
     command = form.get("command")
     args_str = form.get("args", "")
-    args = [arg.strip() for arg in args_str.split(",") if arg.strip()]
+    args = [arg.strip() for arg in str(args_str).split(",") if arg.strip()]
 
     try:
-        upstream.add_stdio_server(name, command, args)
+        upstream.add_stdio_server(str(name), str(command), args)
         # Trigger tool discovery
         await setup_upstream_tools()
 
@@ -933,17 +945,17 @@ async def add_stdio_server(request):
         return HTMLResponse(f'<div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">❌ Error: {str(e)}</div>')
 
 @mcp.custom_route("/api/servers/service", methods=["POST"])
-async def add_service_server(request):
+async def add_service_server(request: Any) -> HTMLResponse:
     """Add a new service server"""
     form = await request.form()
     name = form.get("name")
     command = form.get("command")
     args_str = form.get("args", "")
-    args = [arg.strip() for arg in args_str.split(",") if arg.strip()]
+    args = [arg.strip() for arg in str(args_str).split(",") if arg.strip()]
     port = int(form.get("port", 9121))
 
     try:
-        upstream.add_service_server(name, command, args, port)
+        upstream.add_service_server(str(name), str(command), args, port)
         # Trigger tool discovery (this will start the service)
         await setup_upstream_tools()
 
@@ -959,7 +971,7 @@ async def add_service_server(request):
         return HTMLResponse(f'<div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">❌ Error: {str(e)}</div>')
 
 @mcp.custom_route("/api/servers/{name}", methods=["DELETE"])
-async def remove_server(request):
+async def remove_server(request: Any) -> HTMLResponse:
     """Remove a server"""
     name = request.path_params["name"]
 
@@ -978,12 +990,9 @@ async def remove_server(request):
         return HTMLResponse(f'<div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">❌ Error: {str(e)}</div>')
 
 @mcp.custom_route("/api/trigger-update", methods=["GET"])
-async def trigger_update(request):
+async def trigger_update(request: Any) -> HTMLResponse:
     """Trigger server list update"""
     return HTMLResponse('<script>document.body.dispatchEvent(new Event("serverUpdate"))</script>')
-
-
-
 
 if __name__ == "__main__":
     import asyncio
