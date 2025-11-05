@@ -1,10 +1,22 @@
-# FastMCP - MCP Aggregator
+# MCP Aggregator
 
 A powerful **Model Context Protocol (MCP) aggregator** that unifies multiple MCP servers into a single, manageable interface with a web-based UI and authentication.
 
-## What is FastMCP?
+## ⚠️ Disclaimer
 
-FastMCP is a centralized hub that:
+**Use at Your Own Risk.** The MCP Aggregator provides powerful capabilities for aggregating and managing multiple MCP servers. With great power comes great responsibility:
+
+- **Security:** Always use strong authentication tokens and passwords. Never commit `.env` files to version control.
+- **File Access:** Serena and other tools can access files in the working directory. Be mindful of what directory you run the aggregator from.
+- **Tool Execution:** Some tools can execute arbitrary commands. Only add trusted MCP servers to your aggregator.
+- **Data Privacy:** Be cautious when exposing the aggregator via ngrok or other tunneling services. Ensure proper authentication is in place.
+- **Resource Usage:** Running multiple MCP services can consume significant system resources. Monitor your system performance.
+
+**By using the MCP Aggregator, you acknowledge these risks and take full responsibility for your setup and usage.**
+
+## What is the MCP Aggregator?
+
+The MCP Aggregator is a centralized hub that:
 
 1. **Aggregates Multiple MCP Servers** - Connect and manage multiple MCP servers (HTTP-based, Stdio-based, and background services) from a single point
 2. **Discovers Tools Dynamically** - Automatically discovers and exposes all tools from connected upstream MCP servers
@@ -53,7 +65,7 @@ FastMCP is a centralized hub that:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│           FastMCP (MCP Aggregator)                      │
+│           MCP Aggregator                                │
 │                                                         │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │  Web UI (Port 3050)                              │  │
@@ -89,6 +101,8 @@ FastMCP is a centralized hub that:
 ### Prerequisites
 
 - Python 3.11+
+- Node.js 16+ (for running Stdio-based MCP servers like context7 and filesystem)
+- npm (Node Package Manager, comes with Node.js)
 - `uv` package manager
 - Environment variables configured (see below)
 
@@ -97,7 +111,7 @@ FastMCP is a centralized hub that:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd fastmcp
+cd mcp-aggregator
 
 # Install dependencies
 uv sync
@@ -121,10 +135,10 @@ UI_PASSWORD=your-secure-password
 MY_API_KEY=secret-key-value
 ```
 
-### Running FastMCP
+### Running the Aggregator
 
 ```bash
-# Start the aggregator
+# Start the MCP Aggregator
 uv run main.py
 
 # The web UI will be available at http://localhost:3050
@@ -167,17 +181,17 @@ Port: 9121
 
 ### Using with MCP Clients
 
-FastMCP exposes all discovered tools through a single MCP server interface. Tools are prefixed with their server name:
+The MCP Aggregator exposes all discovered tools through a single MCP server interface. Tools are prefixed with their server name:
 
 - `serena_find_symbol` - From Serena server
 - `context7_search` - From Context7 server
 - `gofastmcp_*` - From GoFastMCP server
 
-Configure your MCP client to connect to FastMCP's stdio or HTTP endpoint.
+Configure your MCP client to connect to the aggregator's stdio or HTTP endpoint.
 
-### Exposing FastMCP with ngrok
+### Exposing with ngrok
 
-To expose FastMCP's web UI and MCP endpoint to the internet securely, use ngrok:
+To expose the MCP Aggregator's web UI and MCP endpoint to the internet securely, use ngrok:
 
 ```bash
 # Install ngrok (if not already installed)
@@ -187,7 +201,7 @@ To expose FastMCP's web UI and MCP endpoint to the internet securely, use ngrok:
 ngrok http 3050
 
 # You'll get a public URL like: https://abc123.ngrok.io
-# Use this URL to access FastMCP from anywhere
+# Use this URL to access the aggregator from anywhere
 ```
 
 **Security with ngrok:**
@@ -215,16 +229,16 @@ curl -H "Authorization: Bearer your-mcp-api-token" https://abc123.ngrok.io/mcp
 - Monitor ngrok logs for unauthorized access attempts
 - Consider using ngrok's authentication features for additional security
 
-### Adding FastMCP to Simtheory
+### Adding to Simtheory
 
-You can integrate FastMCP as a custom MCP in Simtheory to access all aggregated tools directly from the AI interface.
+You can integrate the MCP Aggregator as a custom MCP in Simtheory to access all aggregated tools directly from the AI interface.
 
-#### Step 1: Start FastMCP
+#### Step 1: Start the Aggregator
 
-First, ensure FastMCP is running:
+First, ensure the MCP Aggregator is running:
 
 ```bash
-cd /path/to/fastmcp
+cd /path/to/mcp-aggregator
 uv run main.py
 ```
 
@@ -232,7 +246,7 @@ The server will be available at `http://localhost:3050` and the MCP endpoint at 
 
 #### Step 2: Expose with ngrok (Optional)
 
-If you want to access FastMCP from a remote Simtheory instance, expose it with ngrok:
+If you want to access the aggregator from a remote Simtheory instance, expose it with ngrok:
 
 ```bash
 ngrok http 3050
@@ -255,7 +269,7 @@ In Simtheory, go to **Settings** → **Custom MCPs** and click **Add custom MCP*
 #### Step 4: Verify Connection
 
 Once added, Simtheory will:
-1. Connect to mcp aggregator via the MCP endpoint
+1. Connect to the MCP Aggregator via the MCP endpoint
 2. Discover all available tools from upstream servers
 3. Display them with prefixed names (e.g., `serena_find_symbol`, `filesystem_read_file`)
 4. Allow you to use all tools directly in conversations
@@ -263,7 +277,7 @@ Once added, Simtheory will:
 #### Example Usage in Simtheory
 
 ```
-User: "Activate the fastmcp project and show me the main.py file structure"
+User: "Activate the mcp-aggregator project and show me the main.py file structure"
 
 Simtheory will:
 1. Use serena_activate_project to activate the project
@@ -275,7 +289,7 @@ Simtheory will:
 #### Troubleshooting Simtheory Integration
 
 **Connection refused:**
-- Ensure FastMCP is running: `uv run main.py`
+- Ensure the MCP Aggregator is running: `uv run main.py`
 - Check that port 3050 is not blocked by a firewall
 - If using ngrok, verify the URL is correct and ngrok is still running
 
@@ -286,17 +300,17 @@ Simtheory will:
 
 **Tools not appearing:**
 - Check that upstream servers are running and healthy
-- Verify tool discovery completed successfully (check FastMCP logs)
+- Verify tool discovery completed successfully (check aggregator logs)
 - Try refreshing the Simtheory connection
 
 **Slow tool discovery:**
-- FastMCP discovers tools on startup
-- If you added new servers, restart FastMCP
+- The aggregator discovers tools on startup
+- If you added new servers, restart the aggregator
 - Check network latency if using ngrok
 
 ### Working with Serena Projects
 
-**Serena** is a powerful coding agent toolkit that's integrated as a service in FastMCP. Here's how to use it:
+**Serena** is a powerful coding agent toolkit that's integrated as a service in the MCP Aggregator. Here's how to use it:
 
 #### Starting a Serena Project
 
@@ -315,17 +329,17 @@ The agent will:
 
 #### File Access Restrictions
 
-**Important Security Note:** Serena can only access files in the directory where the FastMCP server is running.
+**Important Security Note:** Serena can only access files in the directory where the MCP Aggregator is running.
 
 ```bash
-# If you start FastMCP from /home/user/projects/fastmcp
-cd /home/user/projects/fastmcp
+# If you start the aggregator from /home/user/projects/mcp-aggregator
+cd /home/user/projects/mcp-aggregator
 uv run main.py
 
 # Serena can access:
-# ✅ /home/user/projects/fastmcp/
-# ✅ /home/user/projects/fastmcp/src/
-# ✅ /home/user/projects/fastmcp/.serena/
+# ✅ /home/user/projects/mcp-aggregator/
+# ✅ /home/user/projects/mcp-aggregator/src/
+# ✅ /home/user/projects/mcp-aggregator/.serena/
 
 # Serena CANNOT access:
 # ❌ /home/user/other-project/
@@ -383,12 +397,12 @@ Serena supports semantic analysis for:
 - C/C++
 - And many more (see `.serena/project.yml` for full list)
 
-Your FastMCP project is configured for Python and Markdown.
+The MCP Aggregator project is configured for Python and Markdown.
 
 ## Project Structure
 
 ```
-fastmcp/
+mcp-aggregator/
 ├── main.py                 # Main application (UpstreamManager, routes, etc.)
 ├── .serena/
 │   └── project.yml        # Serena project configuration
@@ -433,7 +447,7 @@ Provides authentication for:
 
 ## Error Handling
 
-FastMCP includes robust error handling:
+The MCP Aggregator includes robust error handling:
 - JSON serialization errors are caught and converted to strings
 - Service startup failures are logged with detailed error messages
 - Tool discovery failures don't prevent other servers from working
@@ -471,6 +485,7 @@ Run the application and use the web UI to:
 - Check that the port is not already in use
 - Verify the command and arguments are correct
 - Check environment variables are set properly
+- Ensure Node.js and npm are installed for Stdio servers
 
 ### Tools not appearing
 - Ensure the upstream server is running
@@ -482,7 +497,7 @@ Run the application and use the web UI to:
 - Check the console logs for detailed error messages
 
 ### Serena can't access my project
-- Ensure FastMCP is running from the parent directory of your project
+- Ensure the MCP Aggregator is running from the parent directory of your project
 - Check that the project path is correct
 - Verify the project has a `.serena/project.yml` configuration file
 
