@@ -4,7 +4,7 @@ import time
 import requests
 import os
 import logging
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from fastmcp import Client
 from fastmcp.client.auth import BearerAuth
@@ -77,8 +77,17 @@ class UpstreamManager:
                 working_directory=config_dict.get("working_directory")
             )
 
-    def _start_service(self, service_name: str, config: ServiceServerConfig) -> bool:
+    # In src/upstream/manager.py
+    def _start_service(
+        self, 
+        service_name: str, 
+        config: ServiceServerConfig,
+        time_func: Optional[Callable[[], float]] = None
+    ) -> bool:
         """Start a service in background and wait for it to be ready"""
+        if time_func is None:
+            time_func = time.time
+        
         logger.info(f"🚀 Starting service: {service_name}")
 
         try:
@@ -100,8 +109,8 @@ class UpstreamManager:
             url = f"http://localhost:{config.port}{config.health_check_path}"
             logger.info(f"   Waiting for service at {url}...")
 
-            start_time = time.time()
-            while time.time() - start_time < config.startup_timeout:
+            start_time = time_func()  # Use injected function
+            while time_func() - start_time < config.startup_timeout:
                 if process.poll() is not None:
                     stdout, stderr = process.communicate()
                     logger.error(f"   Process died. STDOUT: {stdout[:200] if stdout else ''}")
@@ -338,3 +347,30 @@ class UpstreamManager:
                 process.kill()
             except Exception as e:
                 logger.warning(f"   Error stopping {name}: {e}")
+
+    def list_all_servers(self) -> dict[str, dict[str, Any]]:
+        """List all configured servers with their types"""
+        all_servers = {}
+        
+        for name, config in self.http_servers.items():
+            all_servers[name] = {
+                "type": "http",
+                "url": config.url,
+                "auth_token": config.auth_token is not None
+            }
+        
+        for name, config in self.stdio_servers.items():
+            all_servers[name] = {
+                "type": "stdio",
+                "command": config.command,
+                "args": config.args
+            }
+        
+        for name, config in self.service_servers.items():
+            all_servers[name] = {
+                "type": "service",
+                "port": config.port,
+                "command": config.command
+            }
+        
+        return all_servers
