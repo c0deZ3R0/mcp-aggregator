@@ -1,0 +1,29 @@
+<!-- src/ui/templates/forms/stdio_server.html -->
+<div class="form-section">
+    <h3>Add Stdio Server</h3>
+    <form hx-post="/api/servers/stdio" hx-target="#result" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Name</label>
+            <input type="text" name="name" required
+                   placeholder="my-node-server" maxlength="50">
+        </div>
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Command</label>
+            <input type="text" name="command" required
+                   placeholder="npx">
+        </div>
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Args (comma-separated)</label>
+            <input type="text" name="args" required
+                   placeholder="-y,@upstash/context7-mcp">
+        </div>
+        
+        <button type="submit" class="btn-submit btn-submit-green" style="width: 100%;">
+            Add Stdio Server
+        </button>
+    </form>
+</div>

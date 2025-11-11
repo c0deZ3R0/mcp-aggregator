@@ -1,0 +1,43 @@
+<!-- src/ui/templates/tools_browser.html -->
+<div class="card">
+    <div class="card-header">📚 Tools ({{ total_tools }})</div>
+    
+    <div class="compact-grid">
+        <!-- Tools List -->
+        <div class="tool-list">
+            {% for tool in tools %}
+                <div class="tool-item" data-tool-id="{{ loop.index0 }}" data-tool-name="{{ tool.name }}">
+                    <div style="font-weight: 600; font-family: monospace; font-size: 11px;">{{ tool.name }}</div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Tool Details -->
+        <div id="tool-details" class="tool-details">
+            <div style="text-align: center; color: #999; padding: 30px 20px; font-size: 12px;">
+                Select a tool →
+            </div>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ nonce }}">
+    // Store tools data globally - properly escaped
+    const toolsData = {{ tools | tojson | safe }};
+    
+    console.log('Tools data:', toolsData); // Debug log
+    
+    if (!Array.isArray(toolsData)) {
+        console.error('toolsData is not an array:', toolsData);
+    } else {
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tool-item').forEach((item, index) => {
+                item.addEventListener('click', function() {
+                    if (toolsData[index]) {
+                        selectTool(this, toolsData[index]);
+                    }
+                });
+            });
+        });
+    }
+</script>

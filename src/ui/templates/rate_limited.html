@@ -1,0 +1,12 @@
+<!-- src/ui/templates/rate_limited.html -->
+{% extends "base.html" %}
+
+{% block title %}Login - MCP Aggregator{% endblock %}
+{% block body_class %}bg-gray-50 min-h-screen flex items-center justify-center{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">MCP Aggregator</h1>
+    <p class="text-red-600 text-center font-semibold">Too many attempts. Try again later.</p>
+</div>
+{% endblock %}

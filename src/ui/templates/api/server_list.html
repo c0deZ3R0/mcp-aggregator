@@ -1,0 +1,25 @@
+<!-- src/ui/templates/api/server_list.html -->
+<div class="space-y-2">
+    {% if servers %}
+        {% for server in servers %}
+            <div class="server-row dark:bg-gray-800">
+                <div style="font-weight: 600; font-size: 12px;">{{ server.name }}</div>
+                <div style="font-size: 11px; color: #666; dark:color: #999;">{{ server.type }}</div>
+                <div style="font-size: 11px; color: #666; dark:color: #999;">{{ server.tools }} tools</div>
+                <div style="font-size: 11px; color: #666; dark:color: #999; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ server.auth }}
+                    {{ server.status }}
+                    {{ server.config }}
+                </div>
+                <button hx-delete="/api/servers/{{ server.name }}"
+                        hx-target="#result"
+                        hx-confirm="Remove {{ server.name }}?"
+                        class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs font-semibold">
+                    Remove
+                </button>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p class="text-gray-500 dark:text-gray-400 text-sm">No servers configured</p>
+    {% endif %}
+</div>

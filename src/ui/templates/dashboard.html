@@ -1,0 +1,90 @@
+<!-- src/ui/templates/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MCP Aggregator{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 12px;">
+    <!-- Header -->
+    <div class="header">
+        <h1>🔗 MCP Aggregator</h1>
+        <div class="header-actions">
+            <button id="dark-mode-btn" class="btn btn-dark">🌙 Dark</button>
+            <a href="/logout" class="btn btn-logout">Logout</a>
+        </div>
+    </div>
+
+    <!-- Servers -->
+    <div class="card">
+        <div class="card-header">Servers</div>
+        <div id="server-list" hx-get="/api/servers" hx-trigger="load, serverUpdate from:body" hx-swap="innerHTML">
+            Loading...
+        </div>
+    </div>
+
+    <!-- Tools -->
+    {% if tools %}
+        {% include "tools_browser.html" %}
+    {% endif %}
+
+    <!-- Add Servers -->
+    <div class="form-grid">
+        {% include "forms/http_server.html" %}
+        {% include "forms/stdio_server.html" %}
+        {% include "forms/service_server.html" %}
+    </div>
+
+    <!-- Result -->
+    <div id="result"></div>
+</div>
+
+<script nonce="{{ nonce }}">
+    function selectTool(element, tool) {
+        document.querySelectorAll('.tool-item').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+
+        let schemaHtml = '';
+        if (tool.inputSchema && Object.keys(tool.inputSchema).length > 0) {
+            schemaHtml = `<div class="tool-schema"><strong>Schema:</strong><pre>${JSON.stringify(tool.inputSchema, null, 2)}</pre></div>`;
+        }
+
+        document.getElementById('tool-details').innerHTML = `
+            <div>
+                <div class="tool-name">${tool.name}</div>
+                <div class="tool-description">${tool.description || '<em style="color: #999;">No description</em>'}</div>
+                ${schemaHtml}
+                <button class="btn-copy" data-tool-name="${tool.name}">📋 Copy</button>
+            </div>
+        `;
+        
+        // Re-attach event listener to new button
+        const copyBtn = document.querySelector('[data-tool-name]');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function() {
+                copyToolName(this.dataset.toolName);
+            });
+        }
+    }
+
+    function copyToolName(toolName) {
+        navigator.clipboard.writeText(toolName);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Attach dark mode button listener
+        const darkBtn = document.getElementById('dark-mode-btn');
+        if (darkBtn) {
+            darkBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                toggleDarkMode();
+            });
+        }
+
+        // Select first tool
+        const firstTool = document.querySelector('.tool-item');
+        if (firstTool && typeof toolsMap !== 'undefined' && toolsMap[0]) {
+            selectTool(firstTool, toolsMap[0]);
+        }
+    });
+</script>
+{% endblock %}
