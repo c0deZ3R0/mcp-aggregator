@@ -79,11 +79,11 @@ class UpstreamManager:
 
     # In src/upstream/manager.py
     def _start_service(
-        self, 
-        service_name: str, 
-        config: ServiceServerConfig,
-        time_func: Optional[Callable[[], float]] = None
-    ) -> bool:
+    self, 
+    service_name: str, 
+    config: ServiceServerConfig,
+    time_func: Optional[Callable[[], float]] = None
+) -> bool:
         """Start a service in background and wait for it to be ready"""
         if time_func is None:
             time_func = time.time
@@ -109,7 +109,7 @@ class UpstreamManager:
             url = f"http://localhost:{config.port}{config.health_check_path}"
             logger.info(f"   Waiting for service at {url}...")
 
-            start_time = time_func()  # Use injected function
+            start_time = time_func()
             while time_func() - start_time < config.startup_timeout:
                 if process.poll() is not None:
                     stdout, stderr = process.communicate()
@@ -120,6 +120,8 @@ class UpstreamManager:
                 try:
                     response = requests.get(url, timeout=DEFAULT_REQUEST_TIMEOUT)
                     if response.status_code < 500:
+                        # Register the service on successful startup
+                        self.service_servers[service_name] = config
                         logger.info(f"   ✅ Service {service_name} is ready!")
                         return True
                 except requests.RequestException:

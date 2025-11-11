@@ -1,0 +1,35 @@
+<!-- src/ui/templates/forms/service_server.html -->
+<div class="form-section">
+    <h3>Add Service Server</h3>
+    <form hx-post="/api/servers/service" hx-target="#result" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Name</label>
+            <input type="text" name="name" required
+                   placeholder="my-service" maxlength="50">
+        </div>
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Command</label>
+            <input type="text" name="command" required
+                   placeholder="uvx">
+        </div>
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Args (comma-separated)</label>
+            <input type="text" name="args" required
+                   placeholder="--from,git+https://...">
+        </div>
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Port</label>
+            <input type="number" name="port" required min="1024" max="65535"
+                   placeholder="9121">
+        </div>
+        
+        <button type="submit" class="btn-submit btn-submit-purple" style="width: 100%;">
+            Add Service Server
+        </button>
+    </form>
+</div>

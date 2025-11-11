@@ -1,0 +1,30 @@
+<!-- src/ui/templates/forms/http_server.html -->
+<div class="form-section">
+    <h3>Add HTTP Server</h3>
+    <form hx-post="/api/servers/http" hx-target="#result" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Name</label>
+            <input type="text" name="name" required
+                   placeholder="my-server" maxlength="50">
+        </div>
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">URL</label>
+            <input type="url" name="url" required
+                   placeholder="https://example.com/mcp">
+        </div>
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">Bearer Token (optional)</label>
+            <input type="text" name="auth_token"
+                   placeholder="token or $ENV_VAR_NAME" maxlength="500">
+            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Use $VAR_NAME to reference environment variables</p>
+        </div>
+        
+        <button type="submit" class="btn-submit btn-submit-blue" style="width: 100%;">
+            Add HTTP Server
+        </button>
+    </form>
+</div>
