@@ -1,4 +1,4 @@
-<!-- src/ui/templates/dashboard.html -->
+<!-- src/ui/templates/dashboard.html (PROPERLY INTEGRATED) -->
 {% extends "base.html" %}
 
 {% block title %}Dashboard - MCP Aggregator{% endblock %}
@@ -14,11 +14,81 @@
         </div>
     </div>
 
+    <!-- NEW: Request Tracking Stats -->
+    <div class="card">
+        <div class="card-header">📊 Request Tracking</div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_requests }}</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.completed_requests }}</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.by_status.failed }}</div>
+                <div class="stat-label">Failed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.by_status.in_progress }}</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.average_duration_ms|round(2) }}ms</div>
+                <div class="stat-label">Avg Duration</div>
+            </div>
+        </div>
+        
+        {% if stats.by_server %}
+        <div class="server-stats">
+            <h3>Requests by Server</h3>
+            <div class="server-list">
+                {% for server, count in stats.by_server.items() %}
+                <div class="server-stat">
+                    <span class="server-name">{{ server }}</span>
+                    <span class="server-count">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
     <!-- Servers -->
     <div class="card">
         <div class="card-header">Servers</div>
         <div id="server-list" hx-get="/api/servers" hx-trigger="load, serverUpdate from:body" hx-swap="innerHTML">
             Loading...
+        </div>
+    </div>
+
+    <!-- NEW: Recent Requests -->
+    <div class="card">
+        <div class="card-header">📝 Recent Requests</div>
+        <div class="filters">
+            <label>
+                Status:
+                <select id="status-filter" onchange="filterRequests()">
+                    <option value="">All Statuses</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="pending">Pending</option>
+                </select>
+            </label>
+            <label>
+                Server:
+                <select id="server-filter" onchange="filterRequests()">
+                    <option value="">All Servers</option>
+                    {% for server in stats.by_server.keys() %}
+                    <option value="{{ server }}">{{ server }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div id="recent-requests">
+            <p class="loading">Loading requests...</p>
         </div>
     </div>
 
@@ -70,6 +140,66 @@
         navigator.clipboard.writeText(toolName);
     }
 
+    // NEW: Request tracking functions
+    function loadRequests() {
+        const status = document.getElementById('status-filter')?.value || '';
+        const server = document.getElementById('server-filter')?.value || '';
+        let url = '/api/tracking/requests?limit=20';
+        if (status) url += `&status=${status}`;
+        if (server) url += `&server=${server}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                displayRequests(data.requests);
+            })
+            .catch(error => {
+                console.error('Error loading requests:', error);
+                document.getElementById('recent-requests').innerHTML = 
+                    '<p class="error">Failed to load requests</p>';
+            });
+    }
+
+    function filterRequests() {
+        loadRequests();
+    }
+
+    function displayRequests(requests) {
+        const container = document.getElementById('recent-requests');
+        
+        if (!requests || requests.length === 0) {
+            container.innerHTML = '<p class="loading">No requests found</p>';
+            return;
+        }
+        
+        const html = `
+            <table class="requests-table">
+                <thead>
+                    <tr>
+                        <th>Server</th>
+                        <th>Tool</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${requests.map(req => `
+                        <tr class="request-row status-${req.status}">
+                            <td>${req.server_name}</td>
+                            <td>${req.tool_name}</td>
+                            <td><span class="status-badge status-${req.status}">${req.status}</span></td>
+                            <td>${req.duration_ms ? req.duration_ms.toFixed(2) + 'ms' : '-'}</td>
+                            <td>${new Date(req.created_at).toLocaleString()}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        
+        container.innerHTML = html;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Attach dark mode button listener
         const darkBtn = document.getElementById('dark-mode-btn');
@@ -85,6 +215,11 @@
         if (firstTool && typeof toolsMap !== 'undefined' && toolsMap[0]) {
             selectTool(firstTool, toolsMap[0]);
         }
+
+        // Load requests on page load
+        loadRequests();
+        // Refresh every 5 seconds
+        setInterval(loadRequests, 5000);
     });
 </script>
 {% endblock %}

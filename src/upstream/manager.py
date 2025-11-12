@@ -26,6 +26,7 @@ from src.upstream.defaults import (
     get_default_stdio_servers,
     get_default_service_servers
 )
+from src.tracking.manager import RequestTrackingManager
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class UpstreamManager:
         self.clients: dict[str, dict[str, Any]] = {}
         self.tools_cache: dict[str, list[dict[str, Any]]] = {}
         self.background_processes: dict[str, subprocess.Popen[str]] = {}
+        self.tracking = RequestTrackingManager()
         
         # Initialize with defaults
         self._load_defaults()
@@ -77,13 +79,12 @@ class UpstreamManager:
                 working_directory=config_dict.get("working_directory")
             )
 
-    # In src/upstream/manager.py
     def _start_service(
-    self, 
-    service_name: str, 
-    config: ServiceServerConfig,
-    time_func: Optional[Callable[[], float]] = None
-) -> bool:
+        self, 
+        service_name: str, 
+        config: ServiceServerConfig,
+        time_func: Optional[Callable[[], float]] = None
+    ) -> bool:
         """Start a service in background and wait for it to be ready"""
         if time_func is None:
             time_func = time.time
@@ -120,7 +121,6 @@ class UpstreamManager:
                 try:
                     response = requests.get(url, timeout=DEFAULT_REQUEST_TIMEOUT)
                     if response.status_code < 500:
-                        # Register the service on successful startup
                         self.service_servers[service_name] = config
                         logger.info(f"   ✅ Service {service_name} is ready!")
                         return True
@@ -216,50 +216,75 @@ class UpstreamManager:
             logger.exception(f"Error discovering tools from {server}")
             raise ToolDiscoveryError(f"Failed to discover tools from {server}: {e}")
 
-    async def call_tool(self, server: str, tool: str, arguments: dict[str, Any]) -> Any:
-        """Route tool calls to upstream MCP servers"""
+    async def call_tool(
+        self, 
+        server: str, 
+        tool: str, 
+        arguments: dict[str, Any],
+        client_ip: Optional[str] = None,
+        session_id: Optional[str] = None
+    ) -> Any:
+        """Route tool calls to upstream MCP servers with tracking"""
         if server not in self.clients:
             raise ServerConfigError(f"Unknown server: {server}")
 
-        config = self.clients[server]
-        logger.info(f"🔧 Calling {server}/{tool} with arguments: {arguments}")
+        # Create tracking entry
+        request_id = self.tracking.create_request(
+            server_name=server,
+            tool_name=tool,
+            arguments=arguments,
+            client_ip=client_ip,
+            session_id=session_id
+        )
 
-        if config["type"] == "http":
-            if config.get("auth_token"):
-                client = Client(config["url"], auth=BearerAuth(config["auth_token"]))
-            else:
-                client = Client(config["url"])
-        else:  # stdio
-            mcp_config = {
-                "mcpServers": {
-                    server: {
-                        "command": config["command"],
-                        "args": config["args"],
-                        "env": config["env"]
+        try:
+            self.tracking.start_request(request_id)
+            
+            config = self.clients[server]
+            logger.info(f"🔧 Calling {server}/{tool} (request_id: {request_id})")
+
+            if config["type"] == "http":
+                if config.get("auth_token"):
+                    client = Client(config["url"], auth=BearerAuth(config["auth_token"]))
+                else:
+                    client = Client(config["url"])
+            else:  # stdio
+                mcp_config = {
+                    "mcpServers": {
+                        server: {
+                            "command": config["command"],
+                            "args": config["args"],
+                            "env": config["env"]
+                        }
                     }
                 }
-            }
-            if config.get("working_directory"):
-                mcp_config["mcpServers"][server]["working_directory"] = config["working_directory"]
+                if config.get("working_directory"):
+                    mcp_config["mcpServers"][server]["working_directory"] = config["working_directory"]
 
-            client = Client(mcp_config)
+                client = Client(mcp_config)
 
-        async with client:
-            result = await client.call_tool(tool, arguments)
-            logger.info(f"📥 Result from {server}/{tool}")
+            async with client:
+                result = await client.call_tool(tool, arguments)
+                logger.info(f"📥 Result from {server}/{tool}")
 
-            if result.data is not None:
-                return result.data
-            elif result.content:
-                text_parts: list[str] = []
-                for content_block in result.content:
-                    if hasattr(content_block, 'text'):
-                        text_value = getattr(content_block, 'text', None)
-                        if isinstance(text_value, str):
-                            text_parts.append(text_value)
-                return "\n\n".join(text_parts) if text_parts else None
-            else:
-                return None
+                final_result = None
+                if result.data is not None:
+                    final_result = result.data
+                elif result.content:
+                    text_parts: list[str] = []
+                    for content_block in result.content:
+                        if hasattr(content_block, 'text'):
+                            text_value = getattr(content_block, 'text', None)
+                            if isinstance(text_value, str):
+                                text_parts.append(text_value)
+                    final_result = "\n\n".join(text_parts) if text_parts else None
+                
+                self.tracking.complete_request(request_id, final_result)
+                return final_result
+
+        except Exception as e:
+            self.tracking.fail_request(request_id, str(e))
+            raise
 
     def add_http_server(self, name: str, url: str, auth_token: Optional[str] = None) -> None:
         """Add a new HTTP server"""

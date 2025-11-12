@@ -1,4 +1,4 @@
-# src/ui/routes.py (UPDATED - WITH NONCE)
+# src/ui/routes.py (COMPLETE FILE - WITH STATS)
 import logging
 from pathlib import Path
 from typing import Any, Union
@@ -68,10 +68,13 @@ def register_ui_routes(mcp: FastMCP, auth_service: AuthService, upstream: Upstre
 
     @mcp.custom_route("/ui", methods=["GET"])
     async def home(request: Any) -> HTMLResponse:
-        """Render the main UI with CSRF token and tools"""
+        """Render the main UI with CSRF token, tools, and tracking stats"""
         template = jinja_env.get_template("dashboard.html")
         csrf_token = auth_service.generate_csrf_token()
         nonce = request.scope.get("nonce", "")
+        
+        # Get tracking statistics
+        stats = upstream.tracking.get_statistics()
         
         # Get all registered tools
         tools = get_all_tools()
@@ -90,6 +93,7 @@ def register_ui_routes(mcp: FastMCP, auth_service: AuthService, upstream: Upstre
         html = template.render(
             csrf_token=csrf_token,
             nonce=nonce,
+            stats=stats,  # ADD THIS LINE
             tools=tools,
             tools_by_server=tools_by_server,
             total_tools=len(tools)

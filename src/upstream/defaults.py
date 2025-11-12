@@ -43,25 +43,28 @@ def get_default_stdio_servers() -> dict[str, dict]:
 def get_default_service_servers() -> dict[str, dict]:
     """Get default service server configurations"""
     return {
-        "serena": {
-            "command": "uvx",
-            "args": [
-                "--from",
-                "git+https://github.com/oraios/serena",
-                "serena",
-                "start-mcp-server",
-                "--transport",
-                "streamable-http",
-                "--port",
-                "9121",
-                "--context",
-                "ide-assistant"
-            ],
-            "port": 9121,
-            "health_check_path": "/mcp",
-            "startup_timeout": 30,
-            "env": {},
-            "working_directory": None,
-            "description": "Semantic code retrieval and editing toolkit with LSP integration"
-        }
+       "serena": {
+    "command": "uvx",
+    "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--transport",
+        "streamable-http",
+        "--port",
+        "9121",
+        "--context",
+        "agent",
+        "--mode",
+        "no-onboarding"
+    ],
+    "port": 9121,
+    "health_check_path": "/mcp",
+    "startup_timeout": 30,
+    "env": {
+    },
+    "working_directory": None,
+    "description": "Semantic code retrieval and editing toolkit with LSP integration"
+}
     }

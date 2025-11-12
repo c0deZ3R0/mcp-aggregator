@@ -1,9 +1,9 @@
-# src/api/routes.py (REFACTORED - USE TEMPLATES)
+# src/api/routes.py (COMPLETE - WITH TRACKING ENDPOINTS)
 import logging
 from pathlib import Path
 from typing import Any
 from jinja2 import Environment, FileSystemLoader
-from starlette.responses import HTMLResponse
+from starlette.responses import HTMLResponse, JSONResponse
 from fastmcp import FastMCP
 
 from src.upstream.manager import UpstreamManager
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # Setup Jinja2
 TEMPLATE_DIR = Path(__file__).parent.parent / "ui" / "templates"
 jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
+
 
 def register_api_routes(mcp: FastMCP, upstream: UpstreamManager, auth_service: AuthService) -> None:
     """Register API endpoints with security validation"""
@@ -85,6 +86,87 @@ def register_api_routes(mcp: FastMCP, upstream: UpstreamManager, auth_service: A
             html = template.render(message="Error loading servers")
             return HTMLResponse(html)
 
+    # TRACKING ENDPOINTS
+    @mcp.custom_route("/api/tracking/requests", methods=["GET"])
+    async def get_tracking_requests(request: Any) -> JSONResponse:
+        """Get all tracked requests with optional filters"""
+        try:
+            # Get query parameters
+            limit = int(request.query_params.get("limit", "100"))
+            status_str = request.query_params.get("status")
+            server_name = request.query_params.get("server")
+
+            # Parse status if provided
+            status_enum = None
+            if status_str:
+                from src.tracking.models import RequestStatus
+                try:
+                    status_enum = RequestStatus(status_str)
+                except ValueError:
+                    return JSONResponse(
+                        {"error": f"Invalid status: {status_str}"},
+                        status_code=400
+                    )
+
+            # Get requests from tracking manager
+            requests = upstream.tracking.get_all_requests(
+                limit=limit,
+                status=status_enum,
+                server_name=server_name
+            )
+
+            return JSONResponse({
+                "requests": [r.to_dict() for r in requests]
+            })
+        except Exception:
+            logger.exception("Error fetching tracking requests")
+            return JSONResponse(
+                {"error": "Failed to fetch requests"},
+                status_code=500
+            )
+
+    @mcp.custom_route("/api/tracking/statistics", methods=["GET"])
+    async def get_tracking_statistics(request: Any) -> JSONResponse:
+        """Get tracking statistics"""
+        try:
+            stats = upstream.tracking.get_statistics()
+            return JSONResponse(stats)
+        except Exception:
+            logger.exception("Error fetching tracking statistics")
+            return JSONResponse(
+                {"error": "Failed to fetch statistics"},
+                status_code=500
+            )
+
+    @mcp.custom_route("/api/tracking/request/{request_id}", methods=["GET"])
+    async def get_tracking_request(request: Any) -> JSONResponse:
+        """Get specific request by ID"""
+        try:
+            request_id = request.path_params.get("request_id")
+            
+            if not request_id:
+                return JSONResponse(
+                    {"error": "Request ID is required"},
+                    status_code=400
+                )
+
+            tracked_request = upstream.tracking.get_request(request_id)
+
+            if not tracked_request:
+                return JSONResponse(
+                    {"error": "Request not found"},
+                    status_code=404
+                )
+
+            return JSONResponse(tracked_request.to_dict())
+        except Exception:
+            logger.exception("Error fetching tracking request")
+            return JSONResponse(
+                {"error": "Failed to fetch request"},
+                status_code=500
+            )
+
+    # SERVER MANAGEMENT ENDPOINTS
     @mcp.custom_route("/api/servers/http", methods=["POST"])
     async def add_http_server(request: Any) -> HTMLResponse:
         """Add a new HTTP server with validation"""
@@ -184,7 +266,7 @@ def register_api_routes(mcp: FastMCP, upstream: UpstreamManager, auth_service: A
             command = form.get("command", "").strip()
             args_str = form.get("args", "")
             args = [arg.strip() for arg in str(args_str).split(",") if arg.strip()]
-            
+
             try:
                 port = int(form.get("port", 9121))
             except ValueError:
