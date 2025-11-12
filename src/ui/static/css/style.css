@@ -362,3 +362,206 @@ input:focus, textarea:focus, select:focus {
   margin: 0 auto;
   padding: 0 12px;
 }
+
+
+/* ADD TO END OF src/ui/static/css/style.css */
+
+/* Tracking Stats */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card {
+    background: var(--bg-secondary, #f5f5f5);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--primary-color, #007bff);
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #666);
+    text-transform: uppercase;
+}
+
+.server-stats {
+    background: var(--bg-secondary, #f5f5f5);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.server-stats h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary, #666);
+}
+
+.server-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.server-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    background: rgb(31, 31, 31);
+    border-radius: 4px;
+}
+
+.server-name {
+    font-weight: 500;
+}
+
+.server-count {
+    color: var(--primary-color, #007bff);
+    font-weight: bold;
+}
+
+/* Filters */
+.filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.filters select {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 4px;
+    background: rgb(57, 57, 57);
+}
+
+/* Requests Table */
+.requests-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.requests-table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    background: var(--bg-secondary, #6e4c4c);
+    border-bottom: 2px solid var(--border-color, #ddd);
+}
+
+.requests-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color, #ddd);
+}
+
+.request-row:hover {
+    background: var(--bg-secondary, #f5f5f5);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.status-completed {
+    background: #10b98120;
+    color: #10b981;
+}
+
+.status-badge.status-failed {
+    background: #ef444420;
+    color: #ef4444;
+}
+
+.status-badge.status-in_progress {
+    background: #f59e0b20;
+    color: #f59e0b;
+}
+
+.status-badge.status-pending {
+    background: #6b728020;
+    color: #6b7280;
+}
+
+.loading, .error {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-secondary, #666);
+}
+
+.error {
+    color: #ef4444;
+}
+
+/* ADD TO src/ui/static/css/style.css - DARK MODE FILTER FIXES */
+
+/* Filters - Light Mode */
+.filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    color: #333;
+}
+
+.filters select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    color: #333;
+    font-size: 0.875rem;
+    min-width: 150px;
+}
+
+/* Dark Mode Overrides */
+body.dark-mode .filters label {
+    color: #e5e7eb;
+}
+
+body.dark-mode .filters select {
+    background: #374151;
+    color: #e5e7eb;
+    border-color: #4b5563;
+}
+
+body.dark-mode .filters select:focus {
+    outline: none;
+    border-color: #60a5fa;
+}
+
+body.dark-mode .filters select option {
+    background: #374151;
+    color: #e5e7eb;
+}
+

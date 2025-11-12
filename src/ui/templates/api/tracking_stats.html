@@ -1,0 +1,35 @@
+<!-- src/ui/templates/api/tracking_stats.html (NEW FILE) -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_requests }}</div>
+        <div class="stat-label">Total Requests</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.completed_requests }}</div>
+        <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.by_status.failed }}</div>
+        <div class="stat-label">Failed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.by_status.in_progress }}</div>
+        <div class="stat-label">In Progress</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.average_duration_ms|round(2) }}ms</div>
+        <div class="stat-label">Avg Duration</div>
+    </div>
+</div>
+
+<div class="server-breakdown">
+    <h3>By Server</h3>
+    <div class="server-stats">
+        {% for server, count in stats.by_server.items() %}
+        <div class="server-stat">
+            <span class="server-name">{{ server }}</span>
+            <span class="server-count">{{ count }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>

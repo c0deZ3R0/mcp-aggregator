@@ -1,0 +1,43 @@
+<!-- src/ui/templates/api/tracking_requests.html (NEW FILE) -->
+<div class="requests-table">
+    {% if requests %}
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Server</th>
+                <th>Tool</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Client</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in requests %}
+            <tr class="request-row status-{{ req.status }}">
+                <td>{{ req.created_at.strftime('%H:%M:%S') }}</td>
+                <td>{{ req.server_name }}</td>
+                <td>{{ req.tool_name }}</td>
+                <td>
+                    <span class="status-badge status-{{ req.status }}">
+                        {% if req.status == 'completed' %}✅
+                        {% elif req.status == 'failed' %}❌
+                        {% elif req.status == 'in_progress' %}⏳
+                        {% else %}⏸️{% endif %}
+                        {{ req.status }}
+                    </span>
+                </td>
+                <td>
+                    {% if req.duration_ms %}
+                    {{ req.duration_ms|round(2) }}ms
+                    {% else %}-{% endif %}
+                </td>
+                <td>{{ req.client_ip or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="no-data">No requests yet</p>
+    {% endif %}
+</div>
