@@ -28,7 +28,16 @@ def get_default_stdio_servers() -> dict[str, dict]:
             ],
             "env": {},
             "working_directory": "."
+        },
+        "shell": {
+            "command": "uvx",
+            "args": ["mcp-shell-server"],
+            "env": {
+                "ALLOW_COMMANDS": "ls,cat,pwd,grep,wc,touch,find"
+            },
+            "working_directory": None
         }
+
     }
 
 def get_default_service_servers() -> dict[str, dict]:
