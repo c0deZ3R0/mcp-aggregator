@@ -7,14 +7,14 @@ name = "mcp-aggregator"
 version = "0.1.0"
 description = "MCP Aggregator - Manage and aggregate multiple MCP servers"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=2.13.0.2",
     "starlette>=0.37.0",
     "uvicorn>=0.28.0",
-    "python-dotenv>=1.0.0",
     "requests>=2.31.0",
     "jinja2>=3.1.6",
+    "python-dotenv>=1.2.1",
 ]
 
 [project.optional-dependencies]
@@ -22,7 +22,7 @@ dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
-    "httpx>=0.25.0",
+    "httpx>=0.25.0"
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -128,3 +128,4 @@ dmypy.json
 
 # Project specific
 mcp-aggregator.log
+.sessions.json

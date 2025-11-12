@@ -18,28 +18,36 @@ def create_upstream_tool_wrapper(
     params: list[inspect.Parameter] = []
     annotations: dict[str, Any] = {}
 
-    for param_name, param_info in properties.items():
-        param_type = param_info.get("type", "string")
+    type_mapping = {
+        "string": str,
+        "number": float,
+        "integer": int,
+        "boolean": bool,
+        "array": list,
+        "object": dict,
+    }
 
-        type_mapping = {
-            "string": str,
-            "number": float,
-            "integer": int,
-            "boolean": bool,
-            "array": list,
-            "object": dict,
-        }
+    # ✅ FIXED: Add required parameters FIRST (without defaults)
+    for param_name in required:
+        if param_name in properties:
+            param_info = properties[param_name]
+            param_type = param_info.get("type", "string")
+            python_type = type_mapping.get(param_type, Any)
+            annotations[param_name] = python_type
 
-        python_type = type_mapping.get(param_type, Any)
-        annotations[param_name] = python_type
-
-        if param_name in required:
             params.append(inspect.Parameter(
                 param_name,
                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=python_type
             ))
-        else:
+
+    # ✅ FIXED: Add optional parameters SECOND (with defaults)
+    for param_name, param_info in properties.items():
+        if param_name not in required:  # Skip already-added required params
+            param_type = param_info.get("type", "string")
+            python_type = type_mapping.get(param_type, Any)
+            annotations[param_name] = Optional[python_type]
+
             params.append(inspect.Parameter(
                 param_name,
                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
